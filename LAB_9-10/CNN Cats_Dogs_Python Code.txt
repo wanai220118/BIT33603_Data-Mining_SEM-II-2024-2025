@@ -1,0 +1,111 @@
+#Python code
+import os
+import numpy as np
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense
+from tensorflow.keras.optimizers import Adam
+from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_score, roc_curve
+import matplotlib.pyplot as plt
+
+# Set the dataset path
+path_to_data = 'C:/Users/User/Documents/MyRStudio/Cats_Dogs'  # Replace with your actual path
+
+# Splitting the dataset into training and testing
+# Preparing the training data
+train_data_generator = ImageDataGenerator(rescale=1.0 / 255)
+
+train_data = train_data_generator.flow_from_directory(
+    directory=os.path.join(path_to_data, "training_set"),
+    target_size=(64, 64),
+    batch_size=32,
+    class_mode='binary'
+)
+
+# Preparing the testing data
+test_data_generator = ImageDataGenerator(rescale=1.0 / 255)
+
+test_data = test_data_generator.flow_from_directory(
+    directory=os.path.join(path_to_data, "test_set"),
+    target_size=(64, 64),
+    batch_size=32,
+    class_mode='binary',
+    shuffle=False
+)
+
+# Building the CNN model
+model = Sequential([
+    Conv2D(32, (3, 3), activation='relu', input_shape=(64, 64, 3)),
+    MaxPooling2D(pool_size=(2, 2)),
+    Flatten(),
+    Dense(128, activation='relu'),
+    Dense(1, activation='sigmoid')
+])
+
+# Compile the model
+model.compile(
+    optimizer=Adam(),
+    loss='binary_crossentropy',
+    metrics=['accuracy']
+)
+
+# Train the model
+history = model.fit(
+    train_data,
+    steps_per_epoch=100,  # Adjust based on your dataset
+    epochs=10,
+    validation_data=test_data,
+    validation_steps=50  # Adjust based on your validation dataset
+)
+
+# Evaluate the model on test data
+model_evaluation = model.evaluate(
+    test_data,
+    steps=len(test_data)
+)
+
+test_loss, test_accuracy = model_evaluation
+print(f"Test Loss: {test_loss}")
+print(f"Test Accuracy: {test_accuracy}")
+
+# Predictions on test data for additional metrics
+predictions = model.predict(
+    test_data,
+    steps=len(test_data),
+    verbose=1
+)
+
+# Process predictions and true labels
+predictions = predictions.flatten()
+predicted_classes = (predictions > 0.5).astype(int)
+true_classes = test_data.classes
+
+# Calculate accuracy and error rate
+accuracy = np.mean(predicted_classes == true_classes)
+error_rate = 1 - accuracy
+
+# Calculate precision, recall, and F1 score
+precision_value = precision_score(true_classes, predicted_classes)
+recall_value = recall_score(true_classes, predicted_classes)
+f1_score_value = f1_score(true_classes, predicted_classes)
+
+# ROC and AUC
+auc_value = roc_auc_score(true_classes, predictions)
+fpr, tpr, _ = roc_curve(true_classes, predictions)
+
+# Print additional metrics
+print(f"Accuracy: {accuracy * 100:.2f}%")
+print(f"Error Rate: {error_rate * 100:.2f}%")
+print(f"Precision: {precision_value}")
+print(f"Recall: {recall_value}")
+print(f"F1 Score: {f1_score_value}")
+print(f"AUC: {auc_value}")
+
+# Plot ROC curve
+plt.figure()
+plt.plot(fpr, tpr, label=f"ROC Curve (AUC = {auc_value:.2f})")
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('ROC Curve')
+plt.legend(loc="lower right")
+plt.show()
